@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://js.puter.com/v2/"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>🤖 AI Assistant</h1>
+                <div class="header-controls">
+                    <select id="modelSelect" class="model-select">
+                        <option value="gpt-5.4-nano">GPT-5.4 Nano (Fast)</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
+                        <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+                    </select>
+                    <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+                        🌙
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="chat-wrapper">
+                <div class="chat-box" id="chatBox">
+                    <div class="message ai-message">
+                        <p>Hello! How can I help you today?</p>
+                    </div>
+                </div>
+
+                <div class="input-section">
+                    <div class="title-section">
+                        <h2 id="mainTitle">What's on your mind?</h2>
+                    </div>
+
+                    <div class="input-group">
+                        <button class="btn-add" title="New chat">+</button>
+                        <input 
+                            type="text" 
+                            id="messageInput" 
+                            placeholder="Ask anything..." 
+                            autocomplete="off"
+                        >
+                        <button id="uploadBtn" onclick="document.getElementById('imageInput').click()" class="btn-action-icon" title="Upload image">
+                            🖼️
+                        </button>
+                        <button id="voiceBtn" onclick="toggleVoiceConversation()" class="btn-voice" title="Start voice conversation">
+                            🎤
+                        </button>
+                        <button onclick="sendMessage()" class="btn-send-icon" title="Send message">
+                            ↗️
+                        </button>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button onclick="selectAction('image')" class="action-btn">
+                            <span class="action-icon">🖼️</span>
+                            <span class="action-text">Upload Image</span>
+                        </button>
+                        <button onclick="selectAction('voice')" class="action-btn">
+                            <span class="action-icon">🎤</span>
+                            <span class="action-text">Voice Chat</span>
+                        </button>
+                        <button onclick="selectAction('write')" class="action-btn">
+                            <span class="action-icon">✏️</span>
+                            <span class="action-text">Write</span>
+                        </button>
+                    </div>
+
+                    <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)" style="display: none;">
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
