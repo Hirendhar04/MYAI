@@ -18,12 +18,10 @@
                 </button>
             </div>
 
-
             <div class="conversations-section">
                 <h3>Conversations</h3>
                 <div id="conversationsList" class="conversations-list"></div>
             </div>
-
 
             <div class="sidebar-footer">
                 <button class="settings-btn" onclick="toggleSettings()" title="Settings">
@@ -34,7 +32,6 @@
                 </button>
             </div>
         </aside>
-
 
         <!-- Main Chat Area -->
         <main class="main-area">
@@ -60,7 +57,6 @@
                         </select>
                     </div>
                 </header>
-
 
                 <!-- Messages Container -->
                 <div class="messages-container" id="messagesContainer">
@@ -98,12 +94,23 @@
                     </div>
                 </div>
 
-
                 <!-- Input Area -->
                 <div class="input-area">
                     <div class="input-actions">
                         <button class="action-btn" onclick="document.getElementById('imageInput').click()" title="Upload Image">
                             🖼️
+                        </button>
+                        <button class="action-btn" onclick="generateImagePrompt()" id="imageGenBtn" title="Generate Image">
+                            🪄
+                        </button>
+                        <button class="action-btn" onclick="generateVideoPrompt()" id="videoGenBtn" title="Generate Video">
+                            🎬
+                        </button>
+                        <button class="action-btn" onclick="document.getElementById('transcriptInput').click()" id="transcriptBtn" title="Transcribe Audio">
+                            📝
+                        </button>
+                        <button class="action-btn" onclick="document.getElementById('audioInput').click()" id="voiceSwapBtn" title="Voice Change">
+                            🎚️
                         </button>
                         <button class="action-btn" onclick="toggleVoiceInput()" id="voiceBtn" title="Voice Input">
                             🎤
@@ -113,12 +120,11 @@
                         </button>
                     </div>
 
-
                     <div class="input-wrapper">
-                        <textarea
-                            id="messageInput"
-                            class="message-input"
-                            placeholder="Ask me anything... (Shift+Enter for new line)"
+                        <textarea 
+                            id="messageInput" 
+                            class="message-input" 
+                            placeholder="Ask me anything... or use /image or /video"
                             rows="1"
                         ></textarea>
                         <button class="send-btn" onclick="sendMessage()" title="Send message">
@@ -126,19 +132,18 @@
                         </button>
                     </div>
 
-
                     <div class="input-info">
                         <small>Powered by D1Fluffyy and 400+ models</small>
                     </div>
                 </div>
             </div>
 
-
             <!-- Hidden Elements -->
             <input type="file" id="imageInput" accept="image/*" onchange="handleImageUpload(event)" style="display: none;">
+            <input type="file" id="audioInput" accept="audio/*" onchange="handleVoiceChangeUpload(event)" style="display: none;">
+            <input type="file" id="transcriptInput" accept="audio/*" onchange="handleSpeechToTextUpload(event)" style="display: none;">
         </main>
     </div>
-
 
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal hidden">
@@ -174,6 +179,44 @@
                     </label>
                 </div>
                 <div class="setting-item">
+                    <label for="voiceChangeVoice">Voice Change Voice ID</label>
+                    <input type="text" id="voiceChangeVoice" value="21m00Tcm4TlvDq8ikWAM" placeholder="Enter voice id">
+                </div>
+                <div class="setting-item">
+                    <label for="voiceChangeModel">Voice Change Model</label>
+                    <select id="voiceChangeModel">
+                        <option value="eleven_multilingual_sts_v2" selected>eleven_multilingual_sts_v2</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label for="videoModel">Video Model</label>
+                    <select id="videoModel">
+                        <option value="sora-2-pro" selected>sora-2-pro</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label for="videoSeconds">Video Seconds</label>
+                    <select id="videoSeconds">
+                        <option value="4">4</option>
+                        <option value="6">6</option>
+                        <option value="8" selected>8</option>
+                        <option value="10">10</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label for="videoSize">Video Size</label>
+                    <select id="videoSize">
+                        <option value="1280x720" selected>1280x720</option>
+                        <option value="1024x576">1024x576</option>
+                        <option value="720x1280">720x1280</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="videoTestMode"> Video test mode (no credits)
+                    </label>
+                </div>
+                <div class="setting-item">
                     <h4>About Puter.js</h4>
                     <p style="font-size: 0.9em; margin: 10px 0;">
                         This app uses <strong>Puter.js</strong> for free access to 400+ LLM models from OpenAI, Anthropic, Google, and more.
@@ -184,7 +227,6 @@
             </div>
         </div>
     </div>
-
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>

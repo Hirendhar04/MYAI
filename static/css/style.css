@@ -548,12 +548,16 @@ html, body {
     margin-right: 10px;
 }
 
-.setting-item select, .setting-item input[type="checkbox"] {
+.setting-item select, .setting-item input[type="checkbox"], .setting-item input[type="text"] {
     padding: 8px;
     border: 1px solid var(--border-color);
     border-radius: 6px;
     background: var(--bg-secondary);
     color: var(--text-primary);
+}
+
+.setting-item input[type="text"] {
+    min-width: 220px;
 }
 
 /* Responsive */
