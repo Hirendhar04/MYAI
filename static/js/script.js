@@ -1,219 +1,454 @@
-// Dark Mode Toggle
-function toggleTheme() {
-    document.body.classList.toggle('dark-mode');
-    localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
-    updateThemeButton();
+// ========================
+// PUTER.JS POWERED AI ASSISTANT
+// ========================
+// Uses Puter.js for 400+ free LLM models
+// No API keys - Users pay for their own usage
+
+// ========================
+// STATE MANAGEMENT
+// ========================
+
+let currentChatId = null;
+let currentModel = 'gpt-5-nano';
+let isLoading = false;
+let messageHistory = [];
+let conversations = [];
+
+// ========================
+// SPEECH RECOGNITION
+// ========================
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = new SpeechRecognition ? new SpeechRecognition() : null;
+if (recognition) {
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
 }
 
-function updateThemeButton() {
-    const btn = document.getElementById('themeToggle');
-    btn.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
-}
+let isListening = false;
+const synthesizer = window.speechSynthesis;
 
-// Load saved theme
-function loadTheme() {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark') {
-        document.body.classList.add('dark-mode');
-        updateThemeButton();
+// ========================
+// INITIALIZATION
+// ========================
+
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('Initializing Puter.js AI Assistant...');
+    
+    // Check if Puter is available
+    if (typeof puter === 'undefined') {
+        showError('Puter.js failed to load. Please refresh the page.');
+        return;
+    }
+    
+    console.log('✓ Puter.js loaded successfully');
+    loadTheme();
+    setupEventListeners();
+    await loadConversations();
+    startNewChat();
+});
+
+function setupEventListeners() {
+    const messageInput = document.getElementById('messageInput');
+    
+    // Send message on Enter (Shift+Enter for newlines)
+    messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    // Auto-resize textarea
+    messageInput.addEventListener('input', () => {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = Math.min(messageInput.scrollHeight, 200) + 'px';
+    });
+    
+    // Setup voice recognition events
+    if (recognition) {
+        recognition.onstart = () => {
+            isListening = true;
+            updateVoiceButton();
+        };
+        
+        recognition.onresult = (event) => {
+            let interimTranscript = '';
+            let finalTranscript = '';
+            
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript + ' ';
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            
+            messageInput.value = (finalTranscript + interimTranscript).trim();
+        };
+        
+        recognition.onend = () => {
+            isListening = false;
+            updateVoiceButton();
+        };
     }
 }
 
-// Speech Recognition Setup
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-const recognition = new SpeechRecognition();
-recognition.continuous = true;
-recognition.interimResults = true;
-recognition.lang = 'en-US';
+// ========================
+// CHAT FUNCTIONS (PUTER.JS)
+// ========================
 
-let isListening = false;
-let silenceTimeout;
-let currentTranscript = '';
-
-// Chat functionality with Puter.js AI
 async function sendMessage() {
-    const input = document.getElementById('messageInput');
-    const message = input.value.trim();
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
     
-    if (!message) return;
+    if (!message || isLoading) return;
     
-    const chatBox = document.getElementById('chatBox');
-    const model = document.getElementById('modelSelect').value;
-    
-    // Show chat box and hide action buttons
-    chatBox.classList.add('active');
-    document.querySelector('.action-buttons').style.display = 'none';
-    document.querySelector('.title-section h2').textContent = 'Chat';
+    isLoading = true;
+    messageInput.disabled = true;
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
     
     // Add user message to chat
-    const userMessageDiv = document.createElement('div');
-    userMessageDiv.className = 'message user-message';
-    userMessageDiv.innerHTML = `<p>${escapeHtml(message)}</p>`;
-    chatBox.appendChild(userMessageDiv);
-    
-    input.value = '';
-    chatBox.scrollTop = chatBox.scrollHeight;
+    addMessage('user', message);
+    messageHistory.push({ role: 'user', content: message });
     
     // Show loading indicator
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'message ai-message';
-    loadingDiv.innerHTML = `<p><em>AI is thinking...</em></p>`;
-    chatBox.appendChild(loadingDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    const loadingId = showLoadingIndicator();
     
     try {
-        // Check if Puter is available
-        if (typeof puter === 'undefined' || typeof puter.ai === 'undefined') {
-            throw new Error('Puter.js not loaded. Trying to reload...');
-        }
+        console.log(`🚀 Sending to Puter.js with model: ${currentModel}`);
         
-        console.log('Sending to Puter AI with model:', model);
-        
-        // Use Puter.js to get AI response
-        const response = await puter.ai.chat(message, { 
-            model: model,
-            stream: false
+        // Use Puter.js AI chat
+        const response = await puter.ai.chat(message, {
+            model: currentModel,
+            stream: document.getElementById('streamingMode')?.value === 'stream'
         });
         
-        console.log('Puter response:', response);
+        // Remove loading indicator
+        removeLoadingIndicator(loadingId);
         
+        // Handle response
         let aiResponse = response;
         
-        // Handle various response formats
+        // Parse different response formats from Puter.js
         if (typeof response === 'object' && response !== null) {
-            // Try different property names
             if (response.message && typeof response.message === 'string') {
                 aiResponse = response.message;
-            } else if (response.message && typeof response.message === 'object') {
-                if (response.message.content && Array.isArray(response.message.content)) {
+            } else if (response.message?.content) {
+                if (Array.isArray(response.message.content)) {
                     aiResponse = response.message.content[0]?.text || response.message.content[0];
-                } else if (response.message.content && typeof response.message.content === 'string') {
-                    aiResponse = response.message.content;
-                } else if (response.message.text) {
-                    aiResponse = response.message.text;
-                }
-            } else if (response.content) {
-                if (Array.isArray(response.content)) {
-                    aiResponse = response.content[0]?.text || response.content[0];
                 } else {
-                    aiResponse = response.content;
+                    aiResponse = response.message.content;
                 }
             } else if (response.text) {
                 aiResponse = response.text;
-            } else if (response.choices && Array.isArray(response.choices)) {
-                const choice = response.choices[0];
-                if (choice.message?.content) {
-                    aiResponse = choice.message.content;
-                } else if (choice.text) {
-                    aiResponse = choice.text;
-                }
-            } else {
-                // Last resort: convert to string
-                aiResponse = JSON.stringify(response);
+            } else if (response.content) {
+                aiResponse = response.content;
             }
         }
         
         aiResponse = String(aiResponse || '').trim();
         
         if (!aiResponse) {
-            aiResponse = "I received your message but had trouble generating a response. Please try again.";
+            aiResponse = "I received your message but got an empty response. Please try again.";
         }
         
-        // Remove loading indicator
-        if (loadingDiv.parentNode) {
-            chatBox.removeChild(loadingDiv);
+        console.log('✓ Got response from Puter.js');
+        
+        // Add AI response
+        addMessage('ai', aiResponse);
+        messageHistory.push({ role: 'assistant', content: aiResponse });
+        
+        // Save conversation
+        if (!currentChatId) {
+            currentChatId = 'chat-' + Date.now();
         }
+        saveConversation(currentChatId);
         
-        // Add AI response to chat
-        const aiMessageDiv = document.createElement('div');
-        aiMessageDiv.className = 'message ai-message';
-        aiMessageDiv.innerHTML = `<p>${escapeHtml(aiResponse)}</p>`;
-        chatBox.appendChild(aiMessageDiv);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        
-        // Speak AI response only
-        speakResponse(aiResponse);
+        // Read aloud if enabled
+        if (document.getElementById('readAloud')?.checked) {
+            speakText(aiResponse);
+        }
     } catch (error) {
-        console.error('Puter AI Error:', error);
-        if (loadingDiv.parentNode) {
-            chatBox.removeChild(loadingDiv);
-        }
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'message ai-message';
-        errorDiv.innerHTML = `<p>Error: ${escapeHtml(error.message)}. Using fallback response...</p>`;
-        chatBox.appendChild(errorDiv);
+        console.error('❌ Puter.js Error:', error);
+        removeLoadingIndicator(loadingId);
         
-        // Fallback: use Flask backend
-        try {
-            const fallbackResponse = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message })
-            });
-            const data = await fallbackResponse.json();
-            const fallbackDiv = document.createElement('div');
-            fallbackDiv.className = 'message ai-message';
-            fallbackDiv.innerHTML = `<p>${escapeHtml(data.response)}</p>`;
-            chatBox.appendChild(fallbackDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-            speakResponse(data.response);
-        } catch (fallbackError) {
-            console.error('Fallback error:', fallbackError);
-        }
+        const errorMessage = `Error: ${error.message || 'Failed to get response from Puter.js'}`;
+        addMessage('ai', errorMessage);
+    } finally {
+        isLoading = false;
+        messageInput.disabled = false;
+        messageInput.focus();
     }
 }
 
-// Voice to Text and Auto-Reply
-recognition.onstart = () => {
-    isListening = true;
-    document.getElementById('voiceBtn').classList.add('active');
-};
-
-recognition.onresult = (event) => {
-    let interimTranscript = '';
+function addMessage(role, content) {
+    const container = document.getElementById('messagesContainer');
     
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
+    // Hide welcome section if it exists
+    const welcome = container.querySelector('.welcome-section');
+    if (welcome) welcome.remove();
+    
+    // Show download button
+    const downloadBtn = document.getElementById('downloadBtn');
+    if (downloadBtn) downloadBtn.style.display = 'block';
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${role === 'user' ? 'user' : 'ai'}`;
+    
+    let timestamp = '';
+    if (document.getElementById('showTimestamps')?.checked) {
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        timestamp = `<div class="message-timestamp">${now}</div>`;
+    }
+    
+    messageDiv.innerHTML = `<p>${escapeHtml(content)}</p>${timestamp}`;
+    container.appendChild(messageDiv);
+    
+    // Auto-scroll to bottom
+    container.scrollTop = container.scrollHeight;
+}
+
+function showLoadingIndicator() {
+    const container = document.getElementById('messagesContainer');
+    const loadingDiv = document.createElement('div');
+    const id = 'loading-' + Date.now();
+    loadingDiv.id = id;
+    loadingDiv.className = 'message ai loading';
+    loadingDiv.innerHTML = '<p><em>✨ AI is thinking...</em></p>';
+    container.appendChild(loadingDiv);
+    container.scrollTop = container.scrollHeight;
+    return id;
+}
+
+function removeLoadingIndicator(id) {
+    const element = document.getElementById(id);
+    if (element) element.remove();
+}
+
+function showError(message) {
+    const container = document.getElementById('messagesContainer');
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'message ai error';
+    errorDiv.innerHTML = `<p>⚠️ ${escapeHtml(message)}</p>`;
+    container.appendChild(errorDiv);
+}
+
+// ========================
+// CHAT MANAGEMENT
+// ========================
+
+async function startNewChat() {
+    currentChatId = null;
+    messageHistory = [];
+    
+    const container = document.getElementById('messagesContainer');
+    container.innerHTML = `
+        <div class="welcome-section">
+            <div class="welcome-content">
+                <h2>👋 Welcome to AI Assistant</h2>
+                <p>Powered by <strong>Puter.js</strong> - Free access to 400+ LLM models!</p>
+                <p style="font-size: 0.9em; color: #999;">No API keys needed. Users pay for their own usage through Puter.js</p>
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <span class="feature-icon">💬</span>
+                        <span>Chat & Answer</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🖼️</span>
+                        <span>Image Analysis</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🎤</span>
+                        <span>Voice Input</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🌐</span>
+                        <span>400+ Models</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">⚡</span>
+                        <span>Instant Responses</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">💰</span>
+                        <span>User-Pays Model</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('messageInput').focus();
+}
+
+function saveConversation(id) {
+    const conv = {
+        id: id,
+        title: messageHistory[0]?.content?.substring(0, 30) + '...' || 'New Chat',
+        messages: messageHistory,
+        timestamp: new Date().toISOString()
+    };
+    
+    // Save to localStorage
+    let convs = JSON.parse(localStorage.getItem('puter_conversations') || '[]');
+    const existing = convs.findIndex(c => c.id === id);
+    if (existing >= 0) {
+        convs[existing] = conv;
+    } else {
+        convs.unshift(conv);
+    }
+    localStorage.setItem('puter_conversations', JSON.stringify(convs.slice(0, 50)));
+    
+    updateConversationsList();
+}
+
+async function loadConversations() {
+    try {
+        const data = localStorage.getItem('puter_conversations');
+        conversations = data ? JSON.parse(data) : [];
+        updateConversationsList();
+    } catch (error) {
+        console.error('Error loading conversations:', error);
+    }
+}
+
+function updateConversationsList() {
+    const list = document.getElementById('conversationsList');
+    list.innerHTML = '';
+    
+    conversations.forEach(conv => {
+        const item = document.createElement('button');
+        item.className = `conversation-item ${conv.id === currentChatId ? 'active' : ''}`;
+        item.textContent = conv.title || 'Untitled Chat';
+        item.onclick = () => loadConversation(conv.id);
+        item.oncontextmenu = (e) => {
+            e.preventDefault();
+            deleteConversation(conv.id);
+        };
+        list.appendChild(item);
+    });
+}
+
+function loadConversation(chatId) {
+    const conv = conversations.find(c => c.id === chatId);
+    if (!conv) return;
+    
+    currentChatId = chatId;
+    messageHistory = conv.messages || [];
+    
+    // Clear and reload messages
+    const container = document.getElementById('messagesContainer');
+    container.innerHTML = '';
+    
+    messageHistory.forEach(msg => {
+        addMessage(msg.role === 'user' ? 'user' : 'ai', msg.content);
+    });
+    
+    updateConversationsList();
+}
+
+function deleteConversation(chatId) {
+    if (!confirm('Delete this conversation?')) return;
+    
+    conversations = conversations.filter(c => c.id !== chatId);
+    localStorage.setItem('puter_conversations', JSON.stringify(conversations));
+    
+    if (currentChatId === chatId) {
+        startNewChat();
+    }
+    
+    updateConversationsList();
+}
+
+function downloadChat() {
+    if (messageHistory.length === 0) {
+        alert('No messages to download');
+        return;
+    }
+    
+    let content = 'Chat Export - ' + new Date().toLocaleString() + '\n\n';
+    messageHistory.forEach(msg => {
+        content += `${msg.role.toUpperCase()}:\n${msg.content}\n\n`;
+    });
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'chat-' + currentChatId + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ========================
+// IMAGE HANDLING
+// ========================
+
+async function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const imageData = e.target.result;
         
-        if (event.results[i].isFinal) {
-            currentTranscript += transcript + ' ';
-        } else {
-            interimTranscript += transcript;
+        // Show image in chat
+        const container = document.getElementById('messagesContainer');
+        const imgDiv = document.createElement('div');
+        imgDiv.className = 'message user';
+        imgDiv.innerHTML = `<img src="${imageData}" style="max-width: 200px; border-radius: 8px;">`;
+        container.appendChild(imgDiv);
+        container.scrollTop = container.scrollHeight;
+        
+        // Analyze image with Puter.js
+        const loadingId = showLoadingIndicator();
+        
+        try {
+            console.log('🖼️ Analyzing image with Puter.js...');
+            
+            const response = await puter.ai.chat(
+                'Analyze this image in detail. What do you see?',
+                imageData,
+                { model: currentModel }
+            );
+            
+            removeLoadingIndicator(loadingId);
+            
+            let analysis = response;
+            if (typeof response === 'object' && response !== null) {
+                if (response.message) analysis = response.message;
+                if (response.content) analysis = response.content;
+            }
+            
+            addMessage('ai', `📊 Image Analysis:\n${String(analysis || '')}`);
+            messageHistory.push({ role: 'assistant', content: `Image Analysis: ${analysis}` });
+            
+            if (document.getElementById('readAloud')?.checked) {
+                speakText(String(analysis));
+            }
+        } catch (error) {
+            removeLoadingIndicator(loadingId);
+            addMessage('ai', `❌ Error analyzing image: ${error.message}`);
         }
+    };
+    reader.readAsDataURL(file);
+}
+
+// ========================
+// VOICE FUNCTIONS
+// ========================
+
+function toggleVoiceInput() {
+    if (!recognition) {
+        alert('Speech recognition not supported in your browser');
+        return;
     }
     
-    // Show live transcription
-    const messageInput = document.getElementById('messageInput');
-    messageInput.value = (currentTranscript + interimTranscript).trim();
-    
-    // Reset silence timer
-    clearTimeout(silenceTimeout);
-    silenceTimeout = setTimeout(() => {
-        if (currentTranscript.trim()) {
-            recognition.stop();
-        }
-    }, 1500);
-};
-
-recognition.onend = () => {
-    isListening = false;
-    document.getElementById('voiceBtn').classList.remove('active');
-    
-    // Auto-send the message
-    if (currentTranscript.trim()) {
-        setTimeout(() => sendMessage(), 300);
-    }
-    currentTranscript = '';
-};
-
-recognition.onerror = (event) => {
-    console.error('Speech recognition error:', event.error);
-    isListening = false;
-    document.getElementById('voiceBtn').classList.remove('active');
-};
-
-// Toggle voice conversation
-function toggleVoiceConversation() {
     if (!isListening) {
         recognition.start();
     } else {
@@ -221,85 +456,72 @@ function toggleVoiceConversation() {
     }
 }
 
-// Image functionality with Puter.js AI
-function handleImageSelect(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        const imageData = e.target.result;
-        const model = document.getElementById('modelSelect').value;
-        
-        const chatBox = document.getElementById('chatBox');
-        
-        // Show chat and hide action buttons
-        chatBox.classList.add('active');
-        document.querySelector('.action-buttons').style.display = 'none';
-        document.querySelector('.title-section h2').textContent = 'Chat';
-        
-        // Show image preview in chat
-        const imgPreviewDiv = document.createElement('div');
-        imgPreviewDiv.className = 'message user-message';
-        imgPreviewDiv.innerHTML = `<img src="${imageData}" style="max-width: 200px; border-radius: 8px; margin-bottom: 5px;"><p>Analyzing image...</p>`;
-        chatBox.appendChild(imgPreviewDiv);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        
-        try {
-            // Check if Puter is available
-            if (typeof puter === 'undefined' || typeof puter.ai === 'undefined') {
-                throw new Error('Puter.js not loaded');
-            }
-            
-            // Use Puter.js for image analysis
-            const response = await puter.ai.chat(
-                "Describe this image in detail. What do you see?",
-                imageData,
-                { model: model }
-            );
-            
-            let analysisResponse = response;
-            if (typeof response === 'object' && response !== null) {
-                if (response.message) analysisResponse = response.message;
-                if (response.content) analysisResponse = response.content;
-            }
-            analysisResponse = String(analysisResponse || '').trim();
-            
-            // Update message
-            imgPreviewDiv.innerHTML = `<img src="${imageData}" style="max-width: 200px; border-radius: 8px; margin-bottom: 5px;">`;
-            
-            // Add AI response
-            const aiMessageDiv = document.createElement('div');
-            aiMessageDiv.className = 'message ai-message';
-            aiMessageDiv.innerHTML = `<p><strong>Image Analysis:</strong> ${escapeHtml(analysisResponse)}</p>`;
-            chatBox.appendChild(aiMessageDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-            
-            // Speak response
-            speakResponse(analysisResponse);
-        } catch (error) {
-            console.error('Image analysis error:', error);
-            imgPreviewDiv.innerHTML = `<img src="${imageData}" style="max-width: 200px; border-radius: 8px; margin-bottom: 5px;">`;
-            
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'message ai-message';
-            errorDiv.innerHTML = `<p>Error analyzing image: ${escapeHtml(error.message)}</p>`;
-            chatBox.appendChild(errorDiv);
-        }
-    };
-    reader.readAsDataURL(file);
+function updateVoiceButton() {
+    const btn = document.getElementById('voiceBtn');
+    if (isListening) {
+        btn.classList.add('active');
+        btn.textContent = '⏹️';
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = '🎤';
+    }
 }
 
-// Text-to-Speech for AI responses
-function speakResponse(text) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    window.speechSynthesis.speak(utterance);
+function speakText(text) {
+    if (!synthesizer.speaking) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        synthesizer.speak(utterance);
+    }
 }
 
-// Utility function to escape HTML
+// ========================
+// UI CONTROLS
+// ========================
+
+function switchModel() {
+    const select = document.getElementById('modelSelect');
+    currentModel = select.value;
+    console.log('🔄 Switched to model:', currentModel);
+}
+
+function toggleTheme() {
+    document.body.classList.toggle('dark-mode');
+    const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+    localStorage.setItem('theme', theme);
+}
+
+function setTheme(theme) {
+    if (theme === 'auto') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.body.classList.toggle('dark-mode', prefersDark);
+    } else {
+        document.body.classList.toggle('dark-mode', theme === 'dark');
+    }
+    localStorage.setItem('theme', theme);
+}
+
+function loadTheme() {
+    const saved = localStorage.getItem('theme') || 'light';
+    setTheme(saved);
+}
+
+function toggleSettings() {
+    const modal = document.getElementById('settingsModal');
+    modal.classList.toggle('hidden');
+}
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.toggle('active');
+}
+
+// ========================
+// UTILITY FUNCTIONS
+// ========================
+
 function escapeHtml(text) {
     if (!text || typeof text !== 'string') {
         text = String(text || '');
@@ -314,32 +536,11 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    loadTheme();
+// Close modals when clicking outside
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('settingsModal');
     
-    const messageInput = document.getElementById('messageInput');
-    if (messageInput) {
-        messageInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
+    if (!modal.contains(e.target) && !e.target.closest('[onclick*="toggleSettings"]')) {
+        modal.classList.add('hidden');
     }
 });
-
-// Action button handler
-function selectAction(action) {
-    switch(action) {
-        case 'image':
-            document.getElementById('imageInput').click();
-            break;
-        case 'voice':
-            toggleVoiceConversation();
-            break;
-        case 'write':
-            document.getElementById('messageInput').focus();
-            document.getElementById('messageInput').placeholder = 'Start typing your message...';
-            break;
-    }
-}

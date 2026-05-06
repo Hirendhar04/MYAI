@@ -3,80 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Assistant</title>
+    <title>ChatGPT Clone with Puter.js</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://js.puter.com/v2/"></script>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="header-content">
-                <h1>🤖 AI Assistant</h1>
-                <div class="header-controls">
-                    <select id="modelSelect" class="model-select">
-                        <option value="gpt-5.4-nano">GPT-5.4 Nano (Fast)</option>
-                        <option value="gpt-4o">GPT-4o</option>
-                        <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
-                        <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-                    </select>
-                    <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
-                        🌙
-                    </button>
-                </div>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <button class="new-chat-btn" onclick="startNewChat()" title="New Chat">
+                    <span class="icon">➕</span>
+                    <span>New Chat</span>
+                </button>
             </div>
-        </header>
 
-        <main class="main-content">
-            <div class="chat-wrapper">
-                <div class="chat-box" id="chatBox">
-                    <div class="message ai-message">
-                        <p>Hello! How can I help you today?</p>
+            <div class="conversations-section">
+                <h3>Conversations</h3>
+                <div id="conversationsList" class="conversations-list"></div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="settings-btn" onclick="toggleSettings()" title="Settings">
+                    ⚙️ Settings
+                </button>
+                <button class="theme-btn" onclick="toggleTheme()" title="Toggle Theme">
+                    🌙 Dark Mode
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-area">
+            <div class="chat-container">
+                <!-- Header -->
+                <header class="chat-header">
+                    <div class="header-left">
+                        <button class="toggle-sidebar" onclick="toggleSidebar()">☰</button>
+                        <h1 id="chatTitle">ChatGPT Clone</h1>
+                    </div>
+                    <div class="header-right">
+                        <select id="modelSelect" class="model-select" onchange="switchModel()">
+                            <option value="gpt-5-nano">🚀 GPT-5 Nano (Fastest)</option>
+                            <option value="gpt-5-small">⚡ GPT-5 Small</option>
+                            <option value="gpt-4-turbo">🔥 GPT-4 Turbo</option>
+                            <option value="claude-sonnet-4-5">👑 Claude Sonnet 4.5</option>
+                            <option value="claude-opus">🎓 Claude Opus</option>
+                            <option value="deepseek/deepseek-r1">🧠 DeepSeek R1</option>
+                            <option value="gemini-2-pro">🔷 Gemini 2 Pro</option>
+                            <option value="grok-3">🤖 Grok-3</option>
+                            <option value="llama-3-1">🦙 Llama 3.1</option>
+                            <option value="mistral-large">🌀 Mistral Large</option>
+                        </select>
+                    </div>
+                </header>
+
+                <!-- Messages Container -->
+                <div class="messages-container" id="messagesContainer">
+                    <div class="welcome-section">
+                        <div class="welcome-content">
+                            <h2>👋 Welcome to AI Assistant</h2>
+                            <p>Powered by <strong>Puter.js</strong> - Free access to 400+ LLM models!</p>
+                            <p style="font-size: 0.9em; color: #999;">No API keys needed. Users pay for their own usage through Puter.js</p>
+                            <div class="feature-grid">
+                                <div class="feature-item">
+                                    <span class="feature-icon">💬</span>
+                                    <span>Chat & Answer</span>
+                                </div>
+                                <div class="feature-item">
+                                    <span class="feature-icon">🖼️</span>
+                                    <span>Image Analysis</span>
+                                </div>
+                                <div class="feature-item">
+                                    <span class="feature-icon">🎤</span>
+                                    <span>Voice Input</span>
+                                </div>
+                                <div class="feature-item">
+                                    <span class="feature-icon">🌐</span>
+                                    <span>400+ Models</span>
+                                </div>
+                                <div class="feature-item">
+                                    <span class="feature-icon">⚡</span>
+                                    <span>Instant Responses</span>
+                                </div>
+                                <div class="feature-item">
+                                    <span class="feature-icon">💰</span>
+                                    <span>User-Pays Model</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="input-section">
-                    <div class="title-section">
-                        <h2 id="mainTitle">What's on your mind?</h2>
-                    </div>
-
-                    <div class="input-group">
-                        <button class="btn-add" title="New chat">+</button>
-                        <input 
-                            type="text" 
-                            id="messageInput" 
-                            placeholder="Ask anything..." 
-                            autocomplete="off"
-                        >
-                        <button id="uploadBtn" onclick="document.getElementById('imageInput').click()" class="btn-action-icon" title="Upload image">
+                <!-- Input Area -->
+                <div class="input-area">
+                    <div class="input-actions">
+                        <button class="action-btn" onclick="document.getElementById('imageInput').click()" title="Upload Image">
                             🖼️
                         </button>
-                        <button id="voiceBtn" onclick="toggleVoiceConversation()" class="btn-voice" title="Start voice conversation">
+                        <button class="action-btn" onclick="toggleVoiceInput()" id="voiceBtn" title="Voice Input">
                             🎤
                         </button>
-                        <button onclick="sendMessage()" class="btn-send-icon" title="Send message">
-                            ↗️
+                        <button class="action-btn" onclick="downloadChat()" title="Download Chat" id="downloadBtn" style="display: none;">
+                            💾
                         </button>
                     </div>
 
-                    <div class="action-buttons">
-                        <button onclick="selectAction('image')" class="action-btn">
-                            <span class="action-icon">🖼️</span>
-                            <span class="action-text">Upload Image</span>
-                        </button>
-                        <button onclick="selectAction('voice')" class="action-btn">
-                            <span class="action-icon">🎤</span>
-                            <span class="action-text">Voice Chat</span>
-                        </button>
-                        <button onclick="selectAction('write')" class="action-btn">
-                            <span class="action-icon">✏️</span>
-                            <span class="action-text">Write</span>
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="messageInput" 
+                            class="message-input" 
+                            placeholder="Ask me anything... (Shift+Enter for new line)"
+                            rows="1"
+                        ></textarea>
+                        <button class="send-btn" onclick="sendMessage()" title="Send message">
+                            ▶️
                         </button>
                     </div>
 
-                    <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)" style="display: none;">
+                    <div class="input-info">
+                        <small>Powered by Puter.js • 400+ Free LLM Models • No API Keys Required</small>
+                    </div>
                 </div>
             </div>
+
+            <!-- Hidden Elements -->
+            <input type="file" id="imageInput" accept="image/*" onchange="handleImageUpload(event)" style="display: none;">
         </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-btn" onclick="toggleSettings()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-item">
+                    <label>Theme</label>
+                    <select onchange="setTheme(this.value)">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="auto">Auto</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>Response Streaming</label>
+                    <select id="streamingMode">
+                        <option value="instant" selected>Instant</option>
+                        <option value="stream">Stream (Real-time)</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="readAloud" checked> Read responses aloud
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="showTimestamps"> Show timestamps
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <h4>About Puter.js</h4>
+                    <p style="font-size: 0.9em; margin: 10px 0;">
+                        This app uses <strong>Puter.js</strong> for free access to 400+ LLM models from OpenAI, Anthropic, Google, and more.
+                        The User-Pays model means no backend costs - users pay for their own usage.
+                    </p>
+                    <a href="https://puter.com" target="_blank" style="color: #10a37f; text-decoration: none;">Learn more about Puter →</a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
